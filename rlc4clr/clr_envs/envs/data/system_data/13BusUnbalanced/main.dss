@@ -1,0 +1,56 @@
+Clear
+
+new circuit.IEEE13busIslanded
+
+! Line codes
+
+Redirect IEEE13busLineCodes.dss
+
+! Loads
+
+New Load.671 Bus1=671.1.2.3  Phases=3 Conn=Delta Model=1 kV=4.16   kW=90 kvar=48
+New Load.634a Bus1=634.1     Phases=1 Conn=Wye  Model=1 kV=2.4  kW=48   kvar=30
+New Load.634b Bus1=634.2     Phases=1 Conn=Wye  Model=1 kV=2.4  kW=36   kvar=21
+New Load.634c Bus1=634.3     Phases=1 Conn=Wye  Model=1 kV=2.4  kW=36   kvar=18
+New Load.645 Bus1=645.2       Phases=1 Conn=Wye  Model=1 kV=2.4      kW=51   kvar=31.2
+New Load.646 Bus1=646.2.3    Phases=1 Conn=Delta Model=1 kV=4.16    kW=69   kvar=39.6
+New Load.692 Bus1=692.1.2.3    Phases=3 Conn=Delta Model=1 kV=4.16    kW=51   kvar=27
+New Load.675a Bus1=675.1    Phases=1 Conn=Wye  Model=1 kV=2.4  kW=87   kvar=39
+New Load.675b Bus1=675.2    Phases=1 Conn=Wye  Model=1 kV=2.4  kW=20.4   kvar=12
+New Load.675c Bus1=675.3    Phases=1 Conn=Wye  Model=1 kV=2.4  kW=87   kvar=33.6
+New Load.611 Bus1=611.3      Phases=1 Conn=Wye  Model=1 kV=2.4  kW=51   kvar=24
+New Load.652 Bus1=652.1      Phases=1 Conn=Wye  Model=1 kV=2.4  kW=38.4   kvar=25.8
+New Load.670a Bus1=670.1    Phases=1 Conn=Wye  Model=1 kV=2.4  kW=8.5    kvar=5
+New Load.670b Bus1=670.2    Phases=1 Conn=Wye  Model=1 kV=2.4  kW=19.8    kvar=11.4
+New Load.670c Bus1=670.3    Phases=1 Conn=Wye  Model=1 kV=2.4  kW=34.8  kvar=20.4
+New Load.esl Bus1=632.1.2.3  Phases=3 Conn=Delta Model=1 kV=4.16 kW=0.0 kvar=0.0
+
+! Generators
+
+New Vsource.mt Bus1=650.1.2.3 phases=3 basekv=4.16 pu=1.0 enabled=y
+New Generator.pv Bus1=680.1.2.3 phases=3 kV=4.16 kW=300 kvar=200 model=1 conn=wye
+New Generator.wt Bus1=675.1.2.3 phases=3 kV=4.16 kW=400 kvar=250 model=1 conn=wye
+New Generator.esg Bus1=632.1.2.3 phases=3 kV=4.16 kW=250 kvar=120 model=1 conn=wye
+
+! Lines
+
+New Line.650632    Phases=3 Bus1=650.1.2.3   Bus2=632.1.2.3  LineCode=mtx601 Length=2000 units=ft
+New Line.632670    Phases=3 Bus1=632.1.2.3    Bus2=670.1.2.3  LineCode=mtx601 Length=667  units=ft
+New Line.670671    Phases=3 Bus1=670.1.2.3    Bus2=671.1.2.3  LineCode=mtx601 Length=1333 units=ft
+New Line.671680    Phases=3 Bus1=671.1.2.3    Bus2=680.1.2.3  LineCode=mtx601 Length=1000 units=ft
+New Line.632633    Phases=3 Bus1=632.1.2.3    Bus2=633.1.2.3  LineCode=mtx602 Length=500  units=ft
+New Line.633634    Phases=3 Bus1=633.1.2.3    Bus2=634.1.2.3  LineCode=mtx602 Length=10  units=ft
+New Line.632645    Phases=2 Bus1=632.3.2      Bus2=645.3.2    LineCode=mtx603 Length=500  units=ft
+New Line.645646    Phases=2 Bus1=645.3.2      Bus2=646.3.2    LineCode=mtx603 Length=300  units=ft
+New Line.692675    Phases=3 Bus1=692.1.2.3    Bus2=675.1.2.3  LineCode=mtx606 Length=500  units=ft
+New Line.671692    Phases=3 Bus1=671.1.2.3    Bus2=692.1.2.3  LineCode=mtx606 Length=10  units=ft
+New Line.671684    Phases=2 Bus1=671.1.3      Bus2=684.1.3    LineCode=mtx604 Length=300  units=ft
+New Line.684611    Phases=1 Bus1=684.3        Bus2=611.3      LineCode=mtx605 Length=300  units=ft
+New Line.684652    Phases=1 Bus1=684.1        Bus2=652.1      LineCode=mtx607 Length=800  units=ft
+
+Set Voltagebases=[4.16]
+calcv
+Solve
+BusCoords buscoord.dss
+
+!-------------------------------------------------------------------------------------------------------------------------
