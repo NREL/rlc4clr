@@ -1,31 +1,15 @@
 import copy
 import os
 
-import gym
+import gymnasium as gym
 import numpy as np
 import pandas as pd
 
-from gym import spaces
-from scipy.stats import truncnorm
+from gymnasium import spaces
 
-
-DEBUG = True
-CONTROL_HORIZON_LEN = 72
-STEPS_PER_HOUR = 12
-STEP_INTERVAL_IN_HOUR = 1. / STEPS_PER_HOUR
-REWARD_SCALING_FACTOR = 0.001
-DEFAULT_V_LAMBDA = 1e8
-V_MAX = 1.05
-V_MIN = 0.95
-CONTROL_HISTORY_DICT = {"load_status": [],
-                        "pv_power": [],
-                        "wt_power": [],
-                        "mt_power": [],
-                        "st_power": [],
-                        "slack_power": [],
-                        "voltages": [],
-                        "mt_remaining_fuel": [],
-                        "st_soc": []}
+from clr_envs.envs.der_models import BatteryStorage
+from clr_envs.envs.der_models import MicroTurbine
+from clr_envs.envs.DEFAULT_CONFIG import *
 
 
 # Local config
@@ -86,7 +70,7 @@ class LoadRestoration13BusBaseEnv(gym.Env):
         self.mt = MicroTurbine()
 
         self.simulation_step = 0
-        self.done = False
+        self.terminated = False
         self.load_pickup_decision_last_step = [0.0] * self.num_of_load
         self.v_lambda = DEFAULT_V_LAMBDA
 
@@ -110,23 +94,36 @@ class LoadRestoration13BusBaseEnv(gym.Env):
         if debug_flag:
             self.history = copy.deepcopy(CONTROL_HISTORY_DICT)
 
-    def reset(self, start_index=None, init_storage=None):
+    def reset(self, seed=None, options={}):
         """ Resetting the control episode.
 
         Args:
-          start_index: [Optional] An integer number. The index number
-            indicating which time to start the episode. By default, this value
-            is set as None, and an index is randomly selected in the July time
-            frame. When testing using scenarios from August time frame, this
-            start_index can be specified.
-          init_storage: [Optional] A float number. Initial storage amount (kWh)
+          seed: [Optional] An integer number. Random seed.
+          options: [Optional] A dictionary. Additional configuration on how the
+            environment will be initialized. 
+            start_index: [Optional] An integer number. The index number
+                indicating which time to start the episode. By default, this 
+                value is set as None, and an index is randomly selected in the 
+                July time frame. When testing using scenarios from August time
+                frame, this start_index can be specified.
+            init_storage: [Optional] A float number. Initial storage amount 
+                (kWh)
 
         Returns:
           state: A Numpy array. The RL state of the system at the initial step.
+          info: A dictionary. Additional information.
         """
 
+        super().reset(seed=seed)
+
+        start_index = (options['start_index'] 
+                       if 'start_index' in options.keys() else None)
+        init_storage = (options['init_storage'] 
+                        if 'init_storage' in options.keys() else None)
+
+
         self.simulation_step = 0
-        self.done = False
+        self.terminated = False
         if self.debug:
             self.history = copy.deepcopy(CONTROL_HISTORY_DICT)
         self.load_pickup_decision_last_step = [0.0] * self.num_of_load
@@ -160,11 +157,14 @@ class LoadRestoration13BusBaseEnv(gym.Env):
         step_time = pd.to_datetime(self.exo_data['Time'][start_index])
         for idx in range(CONTROL_HORIZON_LEN):
             self.time_of_day_list.append(step_time)
-            step_time += pd.Timedelta('5M')
+            step_time += pd.Timedelta('5min')
 
         state = self.get_state()
 
-        return state
+        # Update info
+        info = {}
+
+        return state, info
 
     def update_opendss_pickup_load(self, load_pickup_decision):
         """ Update how loads will be restored at this step in OpenDSS.
@@ -459,8 +459,9 @@ class LoadRestoration13BusBaseEnv(gym.Env):
 
         self.simulation_step += 1
         state = self.get_state()
-        self.done = (True if self.simulation_step >= (CONTROL_HORIZON_LEN - 1)
-                     else False)
+        self.terminated = (True 
+                           if self.simulation_step >= (CONTROL_HORIZON_LEN - 1) 
+                           else False)
 
         if self.debug:
 
@@ -480,10 +481,10 @@ class LoadRestoration13BusBaseEnv(gym.Env):
             self.history['st_soc'].\
                 append(self.st.current_storage / self.st.storage_range[1])
 
-            if self.done:
+            if self.terminated:
                 self.history['voltage_bus_names'] = voltage_bus_name
 
-        return state, reward, self.done, {}
+        return state, reward, self.terminated, False, {}
 
     def step_gen_load(self, action):
         """ Implementing one step of control considering both generator
@@ -700,8 +701,9 @@ class LoadRestoration13BusBaseEnv(gym.Env):
 
         self.simulation_step += 1
         state = self.get_state()
-        self.done = True if self.simulation_step >= (CONTROL_HORIZON_LEN - 1)\
-            else False
+        self.terminated = (True 
+                           if self.simulation_step >= (CONTROL_HORIZON_LEN - 1) 
+                           else False)
 
         if self.debug:
             Sslack = self.dss.Circuit.TotalPower()
@@ -718,10 +720,12 @@ class LoadRestoration13BusBaseEnv(gym.Env):
             self.history['st_soc'].append(
                 self.st.current_storage / self.st.storage_range[1])
 
-            if self.done:
+            if self.terminated:
                 self.history['voltage_bus_names'] = voltage_bus_name
 
-        return state, reward, self.done, {'load_only_reward': load_only_reward}
+        info = {'load_only_reward': load_only_reward}
+
+        return state, reward, self.terminated, False, info
 
     def get_control_history(self):
 
@@ -743,7 +747,7 @@ class LoadRestoration13BusBaseEnv(gym.Env):
         return results
 
 
-class LoadRestoration13BusUnbalancedV0(LoadRestoration13BusBaseEnv):
+class LoadRestoration13BusUnbalancedSimplified(LoadRestoration13BusBaseEnv):
     """ A greedy load pickup controller that only learned to control
         dispatchable DERs for the 13 bus system.
 
@@ -754,7 +758,7 @@ class LoadRestoration13BusUnbalancedV0(LoadRestoration13BusBaseEnv):
 
     def __init__(self):
 
-        super(LoadRestoration13BusUnbalancedV0, self).__init__()
+        super(LoadRestoration13BusUnbalancedSimplified, self).__init__()
 
         # See self.get_state() for details on the observation dimension.
         dim_obs = 44  # 12 wind_forecast + 12 pv forecast + 15 load + 5 scalar.
@@ -762,18 +766,18 @@ class LoadRestoration13BusUnbalancedV0(LoadRestoration13BusBaseEnv):
         # last two are for sinT and cosT, using -1 as lower bound.
         scalar_obs_lower = np.array([0.0] * (dim_obs - 2) + [-1.0] * 2)
         self.observation_space = spaces.Box(scalar_obs_lower, scalar_obs_upper,
-                                            dtype=np.float)
+                                            dtype=np.float64)
 
         self.action_upper = np.array([1.0] * 6)
         self.action_lower = np.array([-1.0] * 6)
         self.action_space = spaces.Box(self.action_lower, self.action_upper,
-                                       dtype=np.float32)
+                                       dtype=np.float64)
 
     def step(self, action):
         return self.step_gen_only(action)
 
 
-class LoadRestoration13BusUnbalancedV1(LoadRestoration13BusBaseEnv):
+class LoadRestoration13BusUnbalancedFull(LoadRestoration13BusBaseEnv):
     """ A load restoration controller that control both generation and load
         pickup for the unbalanced 13 bus system.
 
@@ -784,7 +788,7 @@ class LoadRestoration13BusUnbalancedV1(LoadRestoration13BusBaseEnv):
 
     def __init__(self):
 
-        super(LoadRestoration13BusUnbalancedV1, self).__init__()
+        super(LoadRestoration13BusUnbalancedFull, self).__init__()
 
         # See self.get_state() for details on the observation dimension.
         dim_obs = 44  # 12 wind_forecast + 12 pv forecast + 15 load + 5 scalar.
@@ -792,159 +796,14 @@ class LoadRestoration13BusUnbalancedV1(LoadRestoration13BusBaseEnv):
         # last two are for sinT and cosT, using -1 as lower bound.
         scalar_obs_lower = np.array([0.0] * (dim_obs - 2) + [-1.0] * 2)
         self.observation_space = spaces.Box(scalar_obs_lower, scalar_obs_upper,
-                                            dtype=np.float)
+                                            dtype=np.float64)
 
         self.action_upper = np.array([1.0] * 19)
         self.action_lower = np.array([-1.0] * 19)
         self.action_space = spaces.Box(self.action_lower, self.action_upper,
-                                       dtype=np.float32)
+                                       dtype=np.float64)
 
     def step(self, action):
         return self.step_gen_load(action)
 
 
-class MicroTurbine(object):
-    """ A simple Mirco Turbine model.
-
-    Only active power is considered. For reactive power, we assume the MT can
-    always support if the power factor angle is within the designed limit.
-
-    """
-
-    def __init__(self):
-        self.remaining_fuel_in_kwh = None
-        self.original_fuel_in_kwh = 1200.0
-        self.reset()
-
-    def reset(self):
-        """ Resetting the status of the MT back to its original status.
-        """
-
-        self.remaining_fuel_in_kwh = self.original_fuel_in_kwh
-
-    def control(self, power):
-        """ Implement a single step of control.
-
-        Args:
-          power: A float number, generated power output in kW.
-        """
-
-        self.remaining_fuel_in_kwh -= power * STEP_INTERVAL_IN_HOUR
-
-        # For numerical reason, feasibility range might be slightly violated,
-        # following two steps bound it.
-        self.remaining_fuel_in_kwh = max([0.0, self.remaining_fuel_in_kwh])
-        self.remaining_fuel_in_kwh = min([self.remaining_fuel_in_kwh,
-                                          self.original_fuel_in_kwh])
-
-    def validate_power(self, power):
-        """ Validate if such power can be provided given the fuel availability.
-
-        Args:
-          power: A float number, power in kW.
-        Returns:
-          power: A float number, feasibility validated power in kW
-        """
-        if self.remaining_fuel_in_kwh <= 0:
-            power = 0.0
-
-        # Still energy remaining, but not enough
-        if power * STEP_INTERVAL_IN_HOUR > self.remaining_fuel_in_kwh:
-            power = self.remaining_fuel_in_kwh / STEP_INTERVAL_IN_HOUR
-
-        return power
-
-
-class BatteryStorage(object):
-    """ A simple Battery Storage model.
-
-    Only active power is considered. For reactive power, we assume the
-    inverter can always support
-    if the power factor angle is within the designed limit.
-
-    """
-
-    def __init__(self):
-
-        self.storage_range = [160.0, 1250.0]
-
-        self.initial_storage_mean = 1000.0  # kWh
-        self.initial_storage_std = 250.0
-        self.charge_efficiency = 0.95
-        self.discharge_efficiency = 0.9
-
-        self.current_storage = None
-
-    def reset(self, init_storage=None):
-        """ Reset the battery storage at the beginning of an episode.
-
-        Args:
-          init_storage: A float within the self.storage_range limit.
-
-        """
-        if init_storage is None:
-            # Initial battery storage is sampled from a truncated normal
-            # distribution.
-            # On HPC, the output is a numpy array, so adding a float operator
-            # to force converting the type.
-            self.current_storage = float(truncnorm(-1, 1).rvs()
-                                         * self.initial_storage_std
-                                         + self.initial_storage_mean)
-        else:
-            try:
-                init_storage = float(init_storage)
-                init_storage = np.clip(init_storage, self.storage_range[0],
-                                       self.storage_range[1])
-            except (TypeError, ValueError) as e:
-                print(e)
-                print("init_storage value needs to be a float,"
-                      "use default value instead")
-                init_storage = self.initial_storage_mean
-
-            self.current_storage = init_storage
-
-        if DEBUG:
-            print("The initial storage for the battery system is %f."
-                  % self.current_storage)
-
-    def control(self, power):
-        """ Implement control to the storage.
-
-        Args:
-          power: A float, the controlled power to the storage. It discharges
-            if the value is positive, else it is negative.
-        """
-
-        if power < 0:
-            self.current_storage -= self.charge_efficiency * power *\
-                STEP_INTERVAL_IN_HOUR
-        elif power > 0:
-            self.current_storage -= power * STEP_INTERVAL_IN_HOUR /\
-                self.discharge_efficiency
-
-    def validate_power(self, power):
-        """ Validate if such power can be provided based on current SOC.
-
-        Args:
-          power: A float number, power in kW.
-        Returns:
-          power: A float number, feasibility validated power in kW
-        """
-
-        if power > 0:
-            # ensure the discharging power is within the range.
-            if self.current_storage - \
-                    power * STEP_INTERVAL_IN_HOUR / self.discharge_efficiency \
-                    < self.storage_range[0]:
-                power = max(self.current_storage - self.storage_range[0],
-                            0.0) / STEP_INTERVAL_IN_HOUR
-
-        elif power < 0:
-            # ensure charging does not exceed the limit
-            if self.current_storage - \
-                    self.charge_efficiency * power * STEP_INTERVAL_IN_HOUR \
-                    > self.storage_range[1]:
-                power = - max(self.storage_range[1] - self.current_storage,
-                              0.0) / STEP_INTERVAL_IN_HOUR
-
-        return power

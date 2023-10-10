@@ -1,11 +1,11 @@
-from gym.envs.registration import register
+from gymnasium.envs.registration import register
 
 register(
-    id='LoadRestoration13BusUnbalanced-v0',
-    entry_point='clr_envs.envs:LoadRestoration13BusUnbalancedV0'
+    id='LoadRestoration13BusUnbalancedSimplified-v0',
+    entry_point='clr_envs.envs:LoadRestoration13BusUnbalancedSimplified'
 )
 
 register(
-    id='LoadRestoration13BusUnbalanced-v1',
-    entry_point='clr_envs.envs:LoadRestoration13BusUnbalancedV1'
+    id='LoadRestoration13BusUnbalancedFull-v0',
+    entry_point='clr_envs.envs:LoadRestoration13BusUnbalancedFull'
 )
