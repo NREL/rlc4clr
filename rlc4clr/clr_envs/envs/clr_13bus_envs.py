@@ -1,10 +1,12 @@
 import copy
+import json
 import os
 
 import gymnasium as gym
 import numpy as np
 import pandas as pd
 
+from abc import abstractmethod
 from gymnasium import spaces
 
 from clr_envs.envs.der_models import BatteryStorage
@@ -14,6 +16,23 @@ from clr_envs.envs.DEFAULT_CONFIG import *
 
 # Local config
 DATA_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+def override(cls):
+    """Annotation for documenting method overrides.
+
+    Args:
+        cls (type): The superclass that provides the overridden method.
+          If this cls does not actually have the method, an error is raised.
+    """
+
+    def check_override(method):
+        if method.__name__ not in dir(cls):
+            raise NameError("{} does not override any method of {}".format(
+                method, cls))
+        return method
+
+    return check_override
 
 
 class LoadRestoration13BusBaseEnv(gym.Env):
@@ -41,11 +60,6 @@ class LoadRestoration13BusBaseEnv(gym.Env):
         self.epsilon = np.diag([100] * self.num_of_load)
 
         project_path = os.path.join(DATA_DIR, 'data/')
-        exo_data_path = os.path.join(project_path,
-                                     'exogenous_data/'
-                                     'five_min_renewable_profile.csv')
-
-        self.exo_data = pd.read_csv(exo_data_path)
 
         self.dss_data_path = os.path.join(project_path, self.main_dss_subdir)
         self.dss.run_command('Redirect ' + self.dss_data_path)
@@ -65,6 +79,8 @@ class LoadRestoration13BusBaseEnv(gym.Env):
         self.st_max_gen = 250
         self.wt_profile = None
         self.pv_profile = None
+        self.renewable_pseudo_forecasts = None
+
         # Create ST/MT instances.
         self.st = BatteryStorage()
         self.mt = MicroTurbine()
@@ -80,6 +96,7 @@ class LoadRestoration13BusBaseEnv(gym.Env):
 
         self.time_of_day_list = None
         self.forecasts_len_in_hours = 1
+        self.error_level = DEFAULT_ERROR_LEVEL
 
     def enable_debug(self, debug_flag):
         """ If debug mode is enabled or disabled.
@@ -135,36 +152,49 @@ class LoadRestoration13BusBaseEnv(gym.Env):
         if not start_index:
             # Training scenarios are from July, during training scenarios are
             # randomly chosen.
-            # 52128: Index for time 07/01 00:00
-            # 60984: Index for time 07/31 18:00
-            start_index = np.random.randint(52128, 60984)
+            # 0: Index for time 07/01 00:00
+            # 8856: Index for time 07/31 18:00
+            start_index = np.random.randint(0, 8856)
 
         if self.debug:
             print("Scenario index used here is %d" % start_index)
 
-        self.wt_profile = self.exo_data['wind_gen'][start_index:
-                                                    start_index
-                                                    + CONTROL_HORIZON_LEN
-                                                    + STEPS_PER_HOUR]
-        self.wt_profile = self.wt_profile.to_numpy() * self.wind_max_gen
-        self.pv_profile = self.exo_data['pv_gen'][start_index:
-                                                  start_index
-                                                  + CONTROL_HORIZON_LEN
-                                                  + STEPS_PER_HOUR]
-        self.pv_profile = self.pv_profile.to_numpy() * self.pv_max_gen
-
         self.time_of_day_list = []
-        step_time = pd.to_datetime(self.exo_data['Time'][start_index])
-        for idx in range(CONTROL_HORIZON_LEN):
-            self.time_of_day_list.append(step_time)
-            step_time += pd.Timedelta('5min')
-
+        self.obtain_renewable_profile_forecast(start_index)
         state = self.get_state()
 
         # Update info
         info = {}
 
         return state, info
+    
+    def obtain_renewable_profile_forecast(self, start_index):
+        # Obtain the renewable forecasts.
+
+        # Select which folder to read in pseudo forecasts.
+        percentage_error_level = str(int(self.error_level * 100))  # 0.15 -> 15
+        # If perfect forecast, the actuals can be read in from any folder. 
+        # renewable_pseudo_forecasts will be read in,
+        # but not be used later in self.get_state_forecast.
+        percentage_error_level = ('15' 
+                                  if percentage_error_level == '0' 
+                                  else percentage_error_level)
+
+        with open(os.path.join(
+            PSEUDO_FORECASTS_DIR, percentage_error_level + 'p/forecasts_' 
+            + str(start_index) + '.json'), 'r') as fp:
+            episode_renewable_data = json.load(fp)
+
+        actual_renewable = episode_renewable_data['actuals']
+        self.wt_profile = (np.array(actual_renewable['wind']) 
+                           * self.wind_max_gen)
+        self.pv_profile = np.array(actual_renewable['pv']) * self.pv_max_gen
+        self.renewable_pseudo_forecasts = episode_renewable_data['forecasts']
+
+        step_time = pd.to_datetime(episode_renewable_data['time'])
+        for idx in range(CONTROL_HORIZON_LEN):
+            self.time_of_day_list.append(step_time)
+            step_time += pd.Timedelta('5min')
 
     def update_opendss_pickup_load(self, load_pickup_decision):
         """ Update how loads will be restored at this step in OpenDSS.
@@ -249,45 +279,13 @@ class LoadRestoration13BusBaseEnv(gym.Env):
 
         return np.sin(degree), np.cos(degree)
 
+    @abstractmethod
     def get_state(self):
         """ Gather the system state at current step.
-
-        - State dimension is 44, these elements are:
-        0 -11: PV generation forecast for the next 1 hour
-        12-23: Wind generation forecast for the next 1 hour
-        24-38: Load pickup level for all 15 loads
-        39-43: [ST SOC, mt_remaining_fuel, current_timestep, sinT, cosT]
-
         """
-
-        sim_step = self.simulation_step
-
-        # In this version we use the perfect one-hour ahead forecasts for
-        # renewables.
-        pv_forecast = list(self.pv_profile[
-                           sim_step:
-                           sim_step + STEPS_PER_HOUR] / self.pv_max_gen)
-        wt_forecast = list(self.wt_profile[
-                           sim_step:
-                           sim_step + STEPS_PER_HOUR] / self.wind_max_gen)
-
-        current_load_status = self.load_pickup_decision_last_step
-
-        battery_soc = self.st.current_storage / self.st.storage_range[1]
-        mt_fuel_remain_percentage = \
-            self.mt.remaining_fuel_in_kwh / self.mt.original_fuel_in_kwh
-        current_step = sim_step / CONTROL_HORIZON_LEN
-
-        sin_t, cos_t = self.get_trigonomical_representation(
-            self.time_of_day_list[sim_step])
-
-        return np.array(pv_forecast + wt_forecast + current_load_status +
-                        [battery_soc, mt_fuel_remain_percentage, current_step,
-                         sin_t, cos_t])
-
-    def render(self, mode='human'):
         pass
 
+    @abstractmethod
     def step(self, action):
         pass
 
@@ -627,10 +625,6 @@ class LoadRestoration13BusBaseEnv(gym.Env):
             p_mt = 0.0
             p_st = load_picked_up_p
 
-        if DEBUG:
-            print("Gym storage power: %f" % p_st)
-            print("Gym mt power: %f" % p_mt)
-
         # Assuming the maximum angle for inverter is 45 degree (pi/4).
         q_pv = p_pv * np.tan(np.pi / 4 * pv_angle)
         q_wt = p_wt * np.tan(np.pi / 4 * wt_angle)
@@ -681,12 +675,12 @@ class LoadRestoration13BusBaseEnv(gym.Env):
         p_mt = sum([mt_power[i] for i in range(6) if i % 2 == 0])
         q_mt = sum([mt_power[i] for i in range(6) if i % 2 == 1])
 
-        if DEBUG:
-            loss_p, loss_q = self.dss.Circuit.Losses()  # These come in Watt.
-            print("Loss at this step is: %f kW and %f kvar" % (loss_p / 1000.,
-                                                               loss_q / 1000.))
-            print("Lost energy is %f kWh" %
-                  (loss_p / 1000.0 * STEP_INTERVAL_IN_HOUR))
+        # if DEBUG:
+        #     loss_p, loss_q = self.dss.Circuit.Losses()  # These come in Watt.
+        #     print("Loss at this step is: %f kW and %f kvar" % (loss_p / 1000.,
+        #                                                        loss_q / 1000.))
+        #     print("Lost energy is %f kWh" %
+        #           (loss_p / 1000.0 * STEP_INTERVAL_IN_HOUR))
 
         self.mt.control(p_mt)
         self.st.control(p_st)
@@ -775,6 +769,42 @@ class LoadRestoration13BusUnbalancedSimplified(LoadRestoration13BusBaseEnv):
 
     def step(self, action):
         return self.step_gen_only(action)
+    
+    def get_state(self):
+        """ Gather the system state at current step.
+
+        - State dimension is 44, these elements are:
+        0 -11: PV generation forecast for the next 1 hour
+        12-23: Wind generation forecast for the next 1 hour
+        24-38: Load pickup level for all 15 loads
+        39-43: [ST SOC, mt_remaining_fuel, current_timestep, sinT, cosT]
+
+        """
+
+        sim_step = self.simulation_step
+
+        # In this version we use the perfect one-hour ahead forecasts for
+        # renewables.
+        pv_forecast = list(self.pv_profile[
+                           sim_step:
+                           sim_step + STEPS_PER_HOUR] / self.pv_max_gen)
+        wt_forecast = list(self.wt_profile[
+                           sim_step:
+                           sim_step + STEPS_PER_HOUR] / self.wind_max_gen)
+
+        current_load_status = self.load_pickup_decision_last_step
+
+        battery_soc = self.st.current_storage / self.st.storage_range[1]
+        mt_fuel_remain_percentage = \
+            self.mt.remaining_fuel_in_kwh / self.mt.original_fuel_in_kwh
+        current_step = sim_step / CONTROL_HORIZON_LEN
+
+        sin_t, cos_t = self.get_trigonomical_representation(
+            self.time_of_day_list[sim_step])
+
+        return np.array(pv_forecast + wt_forecast + current_load_status +
+                        [battery_soc, mt_fuel_remain_percentage, current_step,
+                         sin_t, cos_t])
 
 
 class LoadRestoration13BusUnbalancedFull(LoadRestoration13BusBaseEnv):
@@ -802,6 +832,116 @@ class LoadRestoration13BusUnbalancedFull(LoadRestoration13BusBaseEnv):
         self.action_lower = np.array([-1.0] * 19)
         self.action_space = spaces.Box(self.action_lower, self.action_upper,
                                        dtype=np.float64)
+        
+    def set_configuration(self, config):
+        """ Set the configuration of the full environment.
+
+        Args:
+          config: A dictionary with the following optional keys.
+            forecast_len: An integer. Fow how many hours of renewable forecasts
+              are included in the observation vector.
+            error_level: A float. The episode end relative forecast error for 
+              renewable generation. Supported values: 0.0, 0.05, 0.1, 0.15,
+              0.2 and 0.25.
+            v_lambda: the penalty factor for voltage violation.
+            
+        """
+
+        if 'error_level' in config.keys():
+            self.error_level = config['error_level']
+            print("The environment uses %f for error_level." 
+                  % self.error_level)
+
+        if 'forecast_len' in config.keys():
+            self.forecasts_len_in_hours = config['forecast_len']
+            print("The environment uses %d hours of forecast information." 
+                  % self.forecasts_len_in_hours)
+            self.update_obs_space()
+
+        if 'v_lambda' in config.keys():
+            self.v_lambda = config['v_lambda']
+            print("The environment uses %f for v_lambda." % self.v_lambda)
+
+
+    def update_obs_space(self):
+        """ Dynamically update the observation space dimension.
+        """
+        if self.forecasts_len_in_hours is not None: 
+            # 12 is the hourly PV/Wind generation forecasts
+            # 15 is the number of loads
+            # The last 5 are: 
+            # [ST SOC, mt_remaining_fuel, current_timestep, sinT, cosT]
+            dim_obs = (12 + 12) * self.forecasts_len_in_hours + 15 + 5
+            scalar_obs_upper = np.array([1.0] * dim_obs)
+            # last two are for sinT and cosT.
+            scalar_obs_lower = np.array([0.0] * (dim_obs - 2) + [-1.0] * 2)
+            self.observation_space = spaces.Box(scalar_obs_lower, 
+                                                scalar_obs_upper, 
+                                                dtype=np.float64)
+            
+    @override(LoadRestoration13BusBaseEnv)
+    def get_state(self):
+        """ Gather the system state at current step.
+
+        - State dimension is (24K+20), these elements are 
+        - (K is the forecast_len):
+        0   - (12K-1): PV generation forecast for the next K hour
+        12K - (24K-1): Wind generation forecast for the next K hour
+        24K - (24K+14): Load pickup level for all 15 loads
+        (24K+15) - (24K+19): 
+          [ST SOC, mt_remaining_fuel, current_timestep, sinT, cosT]
+
+        """
+
+        sim_step = self.simulation_step
+        forecast_steps = STEPS_PER_HOUR * self.forecasts_len_in_hours
+
+        if self.error_level == 0.0:
+            # Perfect forecasts
+            pv_forecast = list(
+                self.pv_profile[sim_step: 
+                                sim_step + forecast_steps] / self.pv_max_gen)
+
+            wt_forecast = list(
+                self.wt_profile[sim_step: 
+                                sim_step + forecast_steps] / self.wind_max_gen)
+        else:
+            rpf = self.renewable_pseudo_forecasts[str(sim_step)]
+            pv_forecast = rpf['pv'][:forecast_steps]
+            wt_forecast = rpf['wind'][:forecast_steps]
+
+        # Shortfall might happen as we approach to the end of the control
+        # horizon
+        shortfall = forecast_steps - len(pv_forecast)
+        pv_forecast += [1.0] * shortfall
+        shortfall = forecast_steps - len(wt_forecast)
+        wt_forecast += [1.0] * shortfall
+
+        assert len(pv_forecast) == forecast_steps
+        assert len(wt_forecast) == forecast_steps
+
+        current_load_status = self.load_pickup_decision_last_step
+
+        battery_soc = self.st.current_storage / self.st.storage_range[1]
+        mt_fuel_remain_percentage = (self.mt.remaining_fuel_in_kwh 
+                                     / self.mt.original_fuel_in_kwh)
+        current_step = sim_step / CONTROL_HORIZON_LEN
+
+        # If the following is not implemented, numerical error might cause 
+        # mt_fuel_remain_percentage < 0, which fails the RL states' boundary 
+        # check. So the following is needed.
+        if (mt_fuel_remain_percentage < 0 
+            and abs(mt_fuel_remain_percentage) < 1e-4):
+            mt_fuel_remain_percentage = 0.0
+
+        sin_t, cos_t = self.get_trigonomical_representation(
+            self.time_of_day_list[sim_step])
+        
+        state = np.array(pv_forecast + wt_forecast + current_load_status +
+                        [battery_soc, mt_fuel_remain_percentage, current_step,
+                         sin_t, cos_t])
+
+        return state
 
     def step(self, action):
         return self.step_gen_load(action)
