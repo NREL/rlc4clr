@@ -1,6 +1,6 @@
 
 
-DEBUG = True
+DEBUG = False
 
 CONTROL_HORIZON_LEN = 72
 STEPS_PER_HOUR = 12
