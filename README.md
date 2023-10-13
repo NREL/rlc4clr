@@ -1,3 +1,48 @@
-# rlc4clr
+# RLC4CLR: Reinforcement Learning Control for Critical Load Restoration
 
-Code in this repo will soon be updated with the latest version.
+## Description
+
+Due to the complexities stemming from the large policy search space, renewable uncertainty, and nonlinearity in a complex grid control problem, directly applying RL algorithms to train a satisfactory policy requires extensive tuning to be successful. To address this challenge, this repository provides users an example on using the curriculum learning (CL) technique to design a training curriculum involving a simpler steppingstone problem that guides the RL agent to learn to solve the original hard problem in a progressive and more effective manner. 
+
+Specifically, the optimal grid control problem considered is the critical load restoration (CLR) problem after a distribution system is islanded due to a substation outage. As we provide a reinforcement learning control (RLC) solution to the CLR problem, the repo is named __RLC4CLR__.
+
+Please refer to our [published paper](https://ieeexplore.ieee.org/abstract/document/9903581) and [preprint on arXiv](https://arxiv.org/abs/2203.04166) for more details.
+
+## Installation
+
+Prepare the environment
+
+```
+git clone https://github.com/NREL/rlc4clr.git
+cd rlc4clr
+conda env create -n rlc4clr -f environment.yml python=3.8
+cd rlc4clr 
+pip install -e .
+```
+
+Download renewable generation profiles and synthetic forecast
+
+```
+Data currently being uploaded at data.openei.org. It will be available soon.
+```
+
+To test if the environment is properly installed, run the `explore_env.ipynb` under the `train` folder.
+
+
+## Funding Acknowledgement
+
+This work was authored by the [National Renewable Energy Laboratory (NREL)](https://www.nrel.gov), operated by Alliance for Sustainable Energy, LLC, for the U.S. Department of Energy (DOE) under Contract No. DE-AC36-08GO28308. Funding provided by the U.S. Department of Energy __Office of Electricity (OE) Advanced Grid Modeling (AGM) Program__. 
+
+## Citation
+
+If citing this work, please use the following:
+
+```bibtex
+@article{zhang2022curriculum,
+  title={Curriculum-based reinforcement learning for distribution system critical load restoration},
+  author={Zhang, Xiangyu and Eseye, Abinet Tesfaye and Knueven, Bernard and Liu, Weijia and Reynolds, Matthew and Jones, Wesley},
+  journal={IEEE Transactions on Power Systems},
+  year={2022},
+  publisher={IEEE}
+}
+```
