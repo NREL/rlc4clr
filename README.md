@@ -15,7 +15,11 @@ Prepare the environment
 ```
 git clone https://github.com/NREL/rlc4clr.git
 cd rlc4clr
-conda env create -n rlc4clr -f environment.yml python=3.8
+
+conda env create -n rlc4clr python=3.10
+conda activate rlc4clr
+pip install -r requirements.txt
+
 cd rlc4clr 
 pip install -e .
 ```
@@ -25,6 +29,8 @@ Download renewable generation profiles and synthetic forecast
 ```
 Data currently being uploaded at data.openei.org. It will be available soon.
 ```
+
+Configuring the path to the renewable data at [DEFAULT_CONFIG.py](rlc4clr/clr_envs/envs/DEFAULT_CONFIG.py#L29)
 
 To test if the environment is properly installed, run the `explore_env.ipynb` under the `train` folder.
 

@@ -39,6 +39,14 @@ parser.add_argument(
     help="Number of iterations to train."
 )
 parser.add_argument(
+    "--checkpoint-frequency", type=int, default=5,
+    help="How frequent the policy will be saved."
+)
+parser.add_argument(
+    "--checkpoint-to-save", type=int, default=3,
+    help="Number of best policies to save."
+)
+parser.add_argument(
     "--worker-num", type=int, default=51,
     help="Number of parallel workers."
 )
@@ -125,7 +133,11 @@ if __name__ == "__main__":
         param_space=config.to_dict(),
         run_config=air.RunConfig(
             stop=stop, local_dir=LOG_PATH,
-            checkpoint_config=air.CheckpointConfig(checkpoint_frequency=5)),
+            checkpoint_config=air.CheckpointConfig(
+                checkpoint_frequency=args.checkpoint_frequency,
+                num_to_keep=args.checkpoint_to_save,
+                checkpoint_score_attribute='episode_reward_mean'
+            )),
     )
     results = tuner.fit()
 

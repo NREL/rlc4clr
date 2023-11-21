@@ -9,7 +9,7 @@ STEP_INTERVAL_IN_HOUR = 1. / STEPS_PER_HOUR
 REWARD_SCALING_FACTOR = 0.001
 
 DEFAULT_V_LAMBDA = 1e8
-DEFAULT_ERROR_LEVEL = 0.1
+DEFAULT_ERROR_LEVEL = 0.0
 
 V_MAX = 1.05
 V_MIN = 0.95
@@ -26,4 +26,4 @@ CONTROL_HISTORY_DICT = {"load_status": [],
 
 # Local config
 # absolute path for pseudo forecasts files.
-PSEUDO_FORECASTS_DIR = '/Users/xzhang2/CodeRepo/agm_dataset/json_data'
+PSEUDO_FORECASTS_DIR = '/projects/drl4dsr/xzhang2/synthetic_forecasts_oedi'

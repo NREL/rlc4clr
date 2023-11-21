@@ -1,14 +1,15 @@
 #!/bin/bash
-#SBATCH --account=rlc4clr
-#SBATCH --time=4:00:00
+#SBATCH --account=drl4dsr
+#SBATCH --time=1:00:00
 #SBATCH --job-name=es_stg1
-#SBATCH --nodes=5
+#SBATCH --nodes=10
+#SBATCH --partition=short
 #SBATCH --tasks-per-node=1
 
 
 module purge
 module load anaconda3
-conda activate /projects/drl4dsr/xzhang2/conda_envs/rlc4clr
+conda activate /projects/drl4dsr/xzhang2/conda-envs/rlc4clr
 
 
 #worker_num=2 # Must be one less that the total number of nodes
