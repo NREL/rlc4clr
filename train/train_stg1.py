@@ -136,7 +136,7 @@ if __name__ == "__main__":
             checkpoint_config=air.CheckpointConfig(
                 checkpoint_frequency=args.checkpoint_frequency,
                 num_to_keep=args.checkpoint_to_save,
-                checkpoint_score_attribute='episode_reward_mean'
+                checkpoint_score_attribute='sampler_results/episode_reward_mean'
             )),
     )
     results = tuner.fit()

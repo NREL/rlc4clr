@@ -149,7 +149,7 @@ class LoadRestoration13BusBaseEnv(gym.Env):
         self.st.reset(init_storage)
 
         # start_index = 180
-        if not start_index:
+        if start_index is None:
             # Training scenarios are from July, during training scenarios are
             # randomly chosen.
             # 0: Index for time 07/01 00:00
