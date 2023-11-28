@@ -57,4 +57,4 @@ echo "Start training"
 
 TIME=$(squeue -j $SLURM_JOB_ID -h --Format TimeLimit)
 
-python -u train_stg1.py --redis-password $redis_password --worker-num $total_cpus --ip-head $ip_head
+python -u train_stg1.py --run ES --redis-password $redis_password --worker-num $total_cpus --ip-head $ip_head
