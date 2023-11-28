@@ -133,6 +133,9 @@ class LoadRestoration13BusBaseEnv(gym.Env):
 
         super().reset(seed=seed)
 
+        if options is None:
+            options = {}
+
         start_index = (options['start_index'] 
                        if 'start_index' in options.keys() else None)
         init_storage = (options['init_storage'] 
@@ -760,12 +763,12 @@ class LoadRestoration13BusUnbalancedSimplified(LoadRestoration13BusBaseEnv):
         # last two are for sinT and cosT, using -1 as lower bound.
         scalar_obs_lower = np.array([0.0] * (dim_obs - 2) + [-1.0] * 2)
         self.observation_space = spaces.Box(scalar_obs_lower, scalar_obs_upper,
-                                            dtype=np.float64)
+                                            dtype=np.float32)
 
         self.action_upper = np.array([1.0] * 6)
         self.action_lower = np.array([-1.0] * 6)
         self.action_space = spaces.Box(self.action_lower, self.action_upper,
-                                       dtype=np.float64)
+                                       dtype=np.float32)
 
     def step(self, action):
         return self.step_gen_only(action)
@@ -826,12 +829,12 @@ class LoadRestoration13BusUnbalancedFull(LoadRestoration13BusBaseEnv):
         # last two are for sinT and cosT, using -1 as lower bound.
         scalar_obs_lower = np.array([0.0] * (dim_obs - 2) + [-1.0] * 2)
         self.observation_space = spaces.Box(scalar_obs_lower, scalar_obs_upper,
-                                            dtype=np.float64)
+                                            dtype=np.float32)
 
         self.action_upper = np.array([1.0] * 19)
         self.action_lower = np.array([-1.0] * 19)
         self.action_space = spaces.Box(self.action_lower, self.action_upper,
-                                       dtype=np.float64)
+                                       dtype=np.float32)
         
     def set_configuration(self, config):
         """ Set the configuration of the full environment.
@@ -877,7 +880,7 @@ class LoadRestoration13BusUnbalancedFull(LoadRestoration13BusBaseEnv):
             scalar_obs_lower = np.array([0.0] * (dim_obs - 2) + [-1.0] * 2)
             self.observation_space = spaces.Box(scalar_obs_lower, 
                                                 scalar_obs_upper, 
-                                                dtype=np.float64)
+                                                dtype=np.float32)
             
     @override(LoadRestoration13BusBaseEnv)
     def get_state(self):
