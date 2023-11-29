@@ -5,6 +5,8 @@
 
 import os
 
+from pathlib import Path
+
 import gymnasium as gym
 import numpy as np
 
@@ -16,7 +18,7 @@ from tqdm import tqdm
 
 CURRENT_FILE_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_POLICY_PATH = os.path.join(
-    CURRENT_FILE_DIR, 'results/ES/trained_policy/checkpoint_000131')
+    CURRENT_FILE_DIR, 'results/STG1/ES/trained_policy/checkpoint_000079')
 
 
 def get_trained_agent(policy_checkpoint=None):
@@ -130,11 +132,14 @@ def rollout(agent, forecast_len):
     outputs = np.array(outputs)
 
     folder_name = 'trajectory_data/' + str(forecast_len) + '_hours/'
+    Path(folder_name).mkdir(parents=True, exist_ok=True)
     np.savetxt(folder_name + 'features.csv', features, delimiter=',')
     np.savetxt(folder_name + 'outputs.csv', outputs, delimiter=',')
 
 
 if __name__ == "__main__":
 
-    agent = get_trained_agent()
-    rollout(agent, 2)
+    for fl in [1, 2, 4, 6]:
+        print("Generating data for forecast length: %d" % fl)
+        agent = get_trained_agent()
+        rollout(agent, fl)
