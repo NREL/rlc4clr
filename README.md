@@ -24,13 +24,7 @@ cd rlc4clr
 pip install -e .
 ```
 
-Download renewable generation profiles and synthetic forecast
-
-```
-Data currently being uploaded at data.openei.org. It will be available soon.
-```
-
-Configuring the path to the renewable data at [DEFAULT_CONFIG.py](rlc4clr/clr_envs/envs/DEFAULT_CONFIG.py#L29)
+Download renewable generation profiles and synthetic forecasts data from the [OEDI website](https://data.openei.org/submissions/5978), unzip the data file and place it under a desired folder. Configuring the path to the renewable data at [DEFAULT_CONFIG.py](rlc4clr/clr_envs/envs/DEFAULT_CONFIG.py#L29)
 
 To test if the environment is properly installed, run the `explore_env.ipynb` under the `train` folder.
 
