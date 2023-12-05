@@ -28,6 +28,11 @@ Download renewable generation profiles and synthetic forecasts data from the [OE
 
 To test if the environment is properly installed, run the `explore_env.ipynb` under the `train` folder.
 
+## More Instructions
+
+[CLR Gym environment](rlc4clr/clr_envs/envs/readme.md)
+
+[Curriculum-based RL training](train/readme.md)
 
 ## Funding Acknowledgement
 
@@ -44,5 +49,14 @@ If citing this work, please use the following:
   journal={IEEE Transactions on Power Systems},
   year={2022},
   publisher={IEEE}
+}
+
+@misc{osti_1887968,
+  title = {RLC4CLR (Reinforcement Learning Controller for Critical Load Restoration Problems)},
+  author = {Zhang, Xiangyu and Eseye, Abinet Tesfaye and Knueven, Bernard and Lui, Weijia and Reynolds, Matthew and Jones, Wesley and USDOE Office of Electricity},
+  doi = {10.11578/dc.20220919.5},
+  url = {https://www.osti.gov/biblio/1887968},
+  year = {2022},
+  month = {3},
 }
 ```
