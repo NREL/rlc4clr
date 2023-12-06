@@ -6,7 +6,17 @@ The training instructions below are tailored for the NREL high-performance compu
 
 ### Step 1. Stage I Training
 
-The Stage I training can be initiated by calling [`train_stg1.py`](train_stg1.py), the corresponding batch script to run on NREL Kestrel is [`kestrel_multinode_stg1.sh`](kestrel_multinode_stg1.py). We leverage the [evolution strategies algorithm](https://arxiv.org/abs/1703.03864) for 1st stage policy search due to its computational scalability.
+We leverage the [evolution strategies (ES) algorithm](https://arxiv.org/abs/1703.03864) for 1st stage policy search due to its computational scalability. If you are running on laptop or a single HPC node, the Stage I training can be initiated by calling [`train_stg1.py`](train_stg1.py) as follows:
+
+```
+python train_stg1.py --run ES --worker-num 51
+```
+
+Change `worker-num` to the number of available cores on your computing platform.
+
+To leverage ES's computational scalability, a ray cluster can be started before calling the training script. This is what we did on Kestrel, see details in the batch script [`kestrel_multinode_stg1.sh`](kestrel_multinode_stg1.py), in which we start 20 computing nodes to parallelize the training.
+
+The trained Stage I policy will be saved under the folder `results/STG1/ES`.
 
 ### Step 2. Knowledge Transfer
 
@@ -27,12 +37,34 @@ See the figure above for illustration. The trained neural network can be used to
 
 Code for data generation is [`kt_data_generation.py`](kt_data_generation.py) (Step 1 & 2 above).
 
+```
+python kt_data_generation.py --forecast-len 2
+```
+The generated state-action pairs are saved under the folder `trajectory_data/x_hours`.
+
+
 Code for behavior cloning is [`kt_behavior_clone.py`](kt_behavior_clone.py) (Step 3).
+
+```
+python kt_behavior_clone.py --forecast-len 2
+```
+
+The supervised learned behavior cloned neural networks are saved under the folder `transferred_model/x_hours`.
+
+Supported values for forecast length of renewable generation are 1, 2, 4 and 6 (hours).
 
 
 ### Step 3. Stage II Training
 
 Stage II training is implemented in [`train_stg2.py`](train_stg2.py). It first load the supervised learning pretrained network and then warmstart the Stage II training in rllib. In Stage II training, we use the [proximal policy optimization (PPO)](https://arxiv.org/abs/1707.06347) algorithm because its consideration of the KL divergence during policy update makes it suitable to train an already pretrained network (instead of aggressively updating the policy and wiping out knowledge learned in Stage I).
+
+Stage II training can be started as follows:
+
+```
+python train_stg2.py --forecast-len 6 --error-level 0.2
+```
+
+Stage II learned models are saved under the folder `results/STG2/x_hours`.
 
 ## Things Worth Noting
 

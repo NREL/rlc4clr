@@ -1,8 +1,6 @@
 #!/usr/bin/env python
-"""
 
-"""
-
+import argparse
 import os
 
 from pathlib import Path
@@ -19,6 +17,13 @@ from tqdm import tqdm
 CURRENT_FILE_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_POLICY_PATH = os.path.join(
     CURRENT_FILE_DIR, 'results/STG1/ES/trained_policy/checkpoint_000079')
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--forecast-len", type=int, default=2,
+    help="The length (hour) of the forecasts used in RL state."
+)
 
 
 def get_trained_agent(policy_checkpoint=None):
@@ -59,7 +64,8 @@ def rollout(agent, forecast_len):
 
     import clr_envs
 
-    env_config = {"forecast_len": forecast_len}
+    env_config = {"forecast_len": forecast_len,
+                  "error_level": 0.0}
 
     env = gym.make('LoadRestoration13BusUnbalancedSimplified-v0')
     # env.set_configuration(env_config)
@@ -139,7 +145,8 @@ def rollout(agent, forecast_len):
 
 if __name__ == "__main__":
 
-    for fl in [1, 2, 4, 6]:
-        print("Generating data for forecast length: %d" % fl)
-        agent = get_trained_agent()
-        rollout(agent, fl)
+    args = parser.parse_args()
+
+    print("Generating data for forecast length: %d" % args.forecast_len)
+    agent = get_trained_agent()
+    rollout(agent, args.forecast_len)

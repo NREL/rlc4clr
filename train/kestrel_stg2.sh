@@ -11,4 +11,4 @@ module purge
 module load anaconda3
 conda activate /projects/drl4dsr/xzhang2/conda-envs/rlc4clr
 
-python train_stg2.py --forecast-len 6 --error-level 0.2 --train-batch-size 20000
+python train_stg2.py --forecast-len 6 --error-level 0.2

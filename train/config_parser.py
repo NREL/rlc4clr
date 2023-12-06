@@ -90,7 +90,7 @@ def create_parser():
         '--lr', type=float, default=1e-5
     )
     parser.add_argument(
-        '--train-batch-size', type=int, default=4000
+        '--train-batch-size', type=int, default=20000
     )
     parser.add_argument(
         '--entropy-coeff', type=float, default=0.0
