@@ -16,7 +16,7 @@ Prepare the environment
 git clone https://github.com/NREL/rlc4clr.git
 cd rlc4clr
 
-conda env create -n rlc4clr python=3.10
+conda create -n rlc4clr python=3.10
 conda activate rlc4clr
 pip install -r requirements.txt
 
@@ -43,12 +43,16 @@ This work was authored by the [National Renewable Energy Laboratory (NREL)](http
 If citing this work, please use the following:
 
 ```bibtex
-@article{zhang2022curriculum,
+@article{zhang2023curriculum,
   title={Curriculum-based reinforcement learning for distribution system critical load restoration},
   author={Zhang, Xiangyu and Eseye, Abinet Tesfaye and Knueven, Bernard and Liu, Weijia and Reynolds, Matthew and Jones, Wesley},
   journal={IEEE Transactions on Power Systems},
-  year={2022},
-  publisher={IEEE}
+  volume={38},
+  number={5},
+  pages={4418--4431},
+  year={2023},
+  publisher={IEEE},
+  doi={10.1109/TPWRS.2022.3209919}
 }
 
 @misc{osti_1887968,
